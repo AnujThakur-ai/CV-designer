@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://folio-resume-studio.netlify.app/sitemap.xml
