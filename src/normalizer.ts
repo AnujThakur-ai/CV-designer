@@ -1,5 +1,98 @@
-import { UnifiedCVSchema, cleanText, emptyUnifiedCV, safeHttpsUrl } from "../lib/normalizer";
-import type { UnifiedCVData } from "../lib/normalizer";
+import { UnifiedCVSchema, cleanText, emptyUnifiedCV, safeHttpsUrl } from "../lib/normalizer.ts";
+import type { UnifiedCVData } from "../lib/normalizer.ts";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readText(value: unknown, limit: number): string {
+  return typeof value === "string" ? cleanText(value, limit) : "";
+}
+
+function canonicalProfileLink(value: unknown, domain: string): string | undefined {
+  const text = readText(value, 2_000);
+  if (!text) return undefined;
+  const url = safeHttpsUrl(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== domain && parsed.hostname !== `www.${domain}`) return undefined;
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
+export function parseProfileJson(source: unknown): UnifiedCVData {
+  const unified = UnifiedCVSchema.safeParse(source);
+  if (unified.success) {
+    const profile = unified.data;
+    profile.personal.avatar = safeHttpsUrl(profile.personal.avatar) ?? "";
+    profile.personal.name = cleanText(profile.personal.name, 200);
+    profile.personal.title = cleanText(profile.personal.title, 300);
+    profile.projects = profile.projects.map((project) => ({
+      ...project,
+      githubUrl: safeHttpsUrl(project.githubUrl) ?? "",
+      liveUrl: safeHttpsUrl(project.liveUrl),
+    }));
+    return profile;
+  }
+
+  if (!isRecord(source) || !isRecord(source.data)) {
+    throw new Error("JSON must be a folio resume export or use the folio unified CV format.");
+  }
+
+  const data = source.data;
+  const experiences = Array.isArray(data.experiences)
+    ? data.experiences.slice(0, 30).flatMap((entry) => {
+      if (!isRecord(entry)) return [];
+      const bullets = readText(entry.bullets, 20_000).split(/\r?\n/).map((bullet) => cleanText(bullet, 2_000)).filter(Boolean);
+      return [{
+        company: readText(entry.company, 300),
+        role: readText(entry.title, 300),
+        startDate: readText(entry.startDate, 100),
+        endDate: readText(entry.endDate, 100),
+        highlights: bullets.slice(0, 30),
+      }];
+    })
+    : [];
+  const projects = Array.isArray(data.projects)
+    ? data.projects.slice(0, 50).flatMap((entry) => {
+      if (!isRecord(entry)) return [];
+      const url = safeHttpsUrl(entry.url);
+      const technologies = readText(entry.language, 500).split(/[,|]/).map((item) => cleanText(item, 100)).filter(Boolean);
+      return [{
+        title: readText(entry.name, 300) || "Project",
+        description: readText(entry.description, 5_000),
+        techStack: technologies.slice(0, 50),
+        stars: typeof entry.stars === "number" && Number.isInteger(entry.stars) && entry.stars >= 0 ? entry.stars : 0,
+        ...(url?.startsWith("https://github.com/") ? { githubUrl: url } : { githubUrl: "" }),
+        ...(url && !url.startsWith("https://github.com/") ? { liveUrl: url } : {}),
+      }];
+    })
+    : [];
+  const skills = Array.isArray(data.skills)
+    ? data.skills.filter((skill): skill is string => typeof skill === "string").slice(0, 100).map((skill) => cleanText(skill, 100)).filter(Boolean)
+    : [];
+
+  return UnifiedCVSchema.parse({
+    ...emptyUnifiedCV,
+    personal: {
+      ...emptyUnifiedCV.personal,
+      name: readText(data.name, 200),
+      title: readText(data.title, 300),
+      email: readText(data.email, 320),
+      avatar: safeHttpsUrl(data.avatar) ?? "",
+      location: readText(data.city, 300),
+      bio: readText(data.summary, 5_000),
+      github: canonicalProfileLink(data.github, "github.com"),
+      linkedInUrl: canonicalProfileLink(data.linkedin, "linkedin.com"),
+    },
+    experience: experiences,
+    projects,
+    skills,
+  });
+}
 
 function parseDateRange(text: string): { startDate: string; endDate: string } {
   const match = text.match(/((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:19|20)\d{2}\s*(?:-|–|—|to)\s*((?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:19|20)\d{2}|Present|Current)/i);
@@ -74,17 +167,7 @@ export async function parseLinkedInFile(file: File): Promise<UnifiedCVData> {
 
   if (file.type === "application/json" || file.name.toLowerCase().endsWith(".json")) {
     const source: unknown = JSON.parse(await file.text());
-    const parsed = UnifiedCVSchema.safeParse(source);
-    if (!parsed.success) throw new Error("JSON must use the folio unified CV format.");
-    parsed.data.personal.avatar = safeHttpsUrl(parsed.data.personal.avatar) ?? "";
-    parsed.data.personal.name = cleanText(parsed.data.personal.name, 200);
-    parsed.data.personal.title = cleanText(parsed.data.personal.title, 300);
-    parsed.data.projects = parsed.data.projects.map((project) => ({
-      ...project,
-      githubUrl: safeHttpsUrl(project.githubUrl) ?? "",
-      liveUrl: safeHttpsUrl(project.liveUrl),
-    }));
-    return parsed.data;
+    return parseProfileJson(source);
   }
   throw new Error("Choose a LinkedIn profile PDF or a folio CV JSON file.");
 }

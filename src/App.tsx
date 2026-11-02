@@ -37,6 +37,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { categories, findTemplate, templates } from "./templates";
 import type { Template } from "./templates";
+import { addUniqueSkills, getSkillBrands, splitSkillInput } from "./skills";
+import type { SkillBrand } from "./skills";
 import { useProfileEnrichment } from "./useProfileEnrichment";
 import type { EnrichedProfile } from "./useProfileEnrichment";
 import type { UnifiedCVData } from "../lib/normalizer";
@@ -306,7 +308,7 @@ function parseWorkspace(value: unknown): WorkspaceSnapshot | null {
     experiences,
     projects,
     education,
-    skills: Array.isArray(source.skills) ? source.skills as string[] : initialResume.skills,
+    skills: Array.isArray(source.skills) ? source.skills.filter((skill): skill is string => typeof skill === "string").slice(0, 100) : initialResume.skills,
     certifications,
     awards,
     avatar: isSafeAvatarDataUrl(source.avatar) ? source.avatar : "",
@@ -381,6 +383,8 @@ function App() {
   const [showEnrichment, setShowEnrichment] = useState(false);
   const [githubConnected, setGithubConnected] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
+  const [profileApiAvailable, setProfileApiAvailable] = useState(false);
+  const [githubInput, setGithubInput] = useState("");
   const [customName, setCustomName] = useState("");
   const [toast, setToast] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
@@ -394,6 +398,7 @@ function App() {
     error,
     generatingSummary,
     fetchGitHub,
+    fetchPublicGitHub,
     fetchLinkedIn,
     importLinkedInFile,
     generateSummary,
@@ -534,7 +539,7 @@ function App() {
           id: `imported-${Date.now()}-${index}`,
           name: project.title,
           description: project.description,
-          url: project.githubUrl || project.liveUrl || "",
+          url: project.liveUrl || project.githubUrl || "",
           language: project.techStack.join(", "),
           stars: project.stars,
         }));
@@ -585,6 +590,12 @@ function App() {
       updateField("linkedin", result.linkedInUrl.replace(/^https?:\/\//, ""));
       notify("LinkedIn URL added — profile details stay yours to edit");
     }
+  }
+
+  async function importPublicGitHub(value: string) {
+    const result = await fetchPublicGitHub(value);
+    if (result) notify("GitHub profile is ready to review");
+    return result;
   }
 
   function handleLinkedInFile(event: ChangeEvent<HTMLInputElement>) {
@@ -652,8 +663,9 @@ function App() {
         }
         setGithubConnected(status.github);
         setLinkedinConnected(status.linkedin);
+        setProfileApiAvailable(true);
       })
-      .catch((reason) => notify(reason instanceof Error ? reason.message : "Could not check connected account status."));
+      .catch(() => setProfileApiAvailable(false));
     if (oauthCallbackHandled.current) return;
     const query = new URLSearchParams(window.location.search);
     const connected = query.get("connected");
@@ -1032,14 +1044,18 @@ function App() {
           <EnrichmentModal
             linkedinInput={linkedinInput}
             setLinkedinInput={setLinkedinInput}
+            githubInput={githubInput}
+            setGithubInput={setGithubInput}
             loading={loading}
             error={error}
             profile={profile}
+            profileApiAvailable={profileApiAvailable}
             githubConnected={githubConnected}
             linkedinConnected={linkedinConnected}
             onConnectGitHub={connectGitHub}
             onConnectLinkedIn={connectLinkedIn}
             onGithub={fetchGitHub}
+            onPublicGitHub={importPublicGitHub}
             onLinkedin={applyLinkedIn}
             onFetchLinkedIn={fetchLinkedIn}
             onImportFile={() => linkedInImportRef.current?.click()}
@@ -1174,7 +1190,7 @@ function ContentEditor({
       <button className="add-entry-button" onClick={() => updateField("education", [...data.education, { id: crypto.randomUUID(), degree: "", school: "", location: "", startDate: "", endDate: "", details: "" }])}><Plus size={14} /> Add education</button>
 
       <div className="editor-subhead"><span>Skills</span><span className="subhead-rule" /></div>
-      <label className="field"><span>Skills (separate with commas)</span><input value={data.skills.join(", ")} onChange={(event) => updateField("skills", event.target.value.split(",").map((skill) => skill.trim()).filter(Boolean))} /></label>
+      <SkillEditor skills={data.skills} onChange={(skills) => updateField("skills", skills)} />
       <CredentialEditor title="Certifications" entries={data.certifications} onChange={(index, patch) => updateCredential("certifications", index, patch)} onAdd={() => updateField("certifications", [...data.certifications, { id: crypto.randomUUID(), name: "", organization: "", date: "" }])} onRemove={(index) => updateField("certifications", data.certifications.filter((_, itemIndex) => itemIndex !== index))} />
       <CredentialEditor title="Awards" entries={data.awards} onChange={(index, patch) => updateCredential("awards", index, patch)} onAdd={() => updateField("awards", [...data.awards, { id: crypto.randomUUID(), name: "", organization: "", date: "" }])} onRemove={(index) => updateField("awards", data.awards.filter((_, itemIndex) => itemIndex !== index))} />
       {sections.filter((section) => section.kind === "custom").map((section) => (
@@ -1183,6 +1199,99 @@ function ContentEditor({
       <button className="enrichment-cta" onClick={onEnrichment}><span className="enrichment-icon"><Sparkles size={14} /></span><span><strong>Import from a profile</strong><small>Start with GitHub · LinkedIn URL support</small></span><ArrowRight size={15} /></button>
       <button className="import-link" onClick={onImport}><Upload size={13} /> Import an existing folio JSON</button>
     </>
+  );
+}
+
+function SkillEditor({ skills, onChange }: { skills: string[]; onChange: (skills: string[]) => void }) {
+  const [draft, setDraft] = useState("");
+
+  function addSkills(values: string[]) {
+    onChange(addUniqueSkills(skills, values));
+    setDraft("");
+  }
+
+  function handleChange(value: string) {
+    const parsed = splitSkillInput(value);
+    if (parsed.skills.length) onChange(addUniqueSkills(skills, parsed.skills));
+    setDraft(parsed.draft);
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      const parsed = splitSkillInput(draft);
+      addSkills([...parsed.skills, parsed.draft]);
+    } else if (event.key === "Backspace" && !draft && skills.length) {
+      onChange(skills.slice(0, -1));
+    }
+  }
+
+  return (
+    <div className="skill-editor">
+      <label className="field">
+        <span>Skills and tools <small>Press Enter or comma to add each one</small></span>
+        <input
+          aria-label="Add a skill or tool"
+          value={draft}
+          onChange={(event) => handleChange(event.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={() => draft.trim() && addSkills(draft.split(",").map((skill) => skill.trim()))}
+          placeholder="e.g. React, Figma, Python"
+        />
+      </label>
+      <div className="skill-editor-list" aria-label="Added skills">
+        {skills.map((skill, index) => (
+          <span className="skill-editor-chip" key={`${skill}-${index}`}>
+            <SkillMark skill={skill} />
+            {skill}
+            <button type="button" aria-label={`Remove ${skill}`} onMouseDown={(event) => event.preventDefault()} onClick={() => onChange(skills.filter((_, itemIndex) => itemIndex !== index))}><X size={12} /></button>
+          </span>
+        ))}
+        {!skills.length && <span className="skill-editor-empty">Add skills to show them in your toolkit.</span>}
+      </div>
+      <div className="skill-suggestions" aria-label="Popular skills">
+        {["React", "TypeScript", "Python", "Figma", "Git", "Docker"].filter((skill) => !skills.some((item) => item.toLowerCase() === skill.toLowerCase())).map((skill) => (
+          <button type="button" key={skill} onMouseDown={(event) => event.preventDefault()} onClick={() => addSkills([skill])}><Plus size={11} /> {skill}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const skillBrandLabels: Partial<Record<SkillBrand, string>> = {
+  typescript: "TS",
+  javascript: "JS",
+  python: "Py",
+  figma: "F",
+  github: "GH",
+  git: "Git",
+  node: "JS",
+  docker: "D",
+  aws: "AWS",
+  html: "5",
+  css: "3",
+  java: "J",
+  go: "Go",
+  rust: "Rs",
+};
+
+function SkillMark({ skill }: { skill: string }) {
+  const brands = getSkillBrands(skill);
+  if (!brands.length) return <Sparkles className="skill-mark skill-mark-generic" size={13} aria-hidden="true" />;
+  return (
+    <span className="skill-mark-group" aria-hidden="true">
+      {brands.slice(0, 3).map((brand) => (
+        <span className={`skill-mark skill-mark-${brand}`} key={brand} title={brand}>
+          {brand === "react"
+            ? <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" /><ellipse cx="12" cy="12" rx="10" ry="4" /><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" /><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)" /></svg>
+            : brand === "figma"
+              ? <svg viewBox="0 0 24 24"><circle cx="8" cy="5" r="4" /><circle cx="16" cy="5" r="4" /><circle cx="8" cy="12" r="4" /><circle cx="16" cy="12" r="4" /><circle cx="8" cy="19" r="4" /></svg>
+              : brand === "github"
+                ? <Github size={13} />
+                : <span>{skillBrandLabels[brand] ?? brand.slice(0, 2).toUpperCase()}</span>}
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -1487,12 +1596,20 @@ function LiveCanvas({
           ? data.experiences.map((entry) => <div className="resume-entry" key={entry.id}><div className="entry-heading"><strong>{entry.title || "Role title"}</strong><span>{[entry.startDate, entry.endDate].filter(Boolean).join(" — ")}</span></div><div className="entry-subheading">{entry.company}{entry.location && <> <span>·</span> {entry.location}</>}</div>{entry.summary && <p>{entry.summary}</p>}{entry.bullets.split("\n").filter((bullet) => bullet.trim()).length > 0 && <ul>{entry.bullets.split("\n").filter((bullet) => bullet.trim()).map((bullet, index) => <li key={`${entry.id}-bullet-${index}`}>{bullet}</li>)}</ul>}</div>)
           : <p className="placeholder-note">Add your experience in the Content tab.</p>)}
         {section.kind === "projects" && (data.projects.length > 0
-          ? <div className="project-preview-grid">{data.projects.map((project) => <div className="resume-project" key={project.id}><div className="project-title"><strong>{project.name || "Project name"}</strong>{project.stars !== undefined && <span>✳ {project.stars}</span>}</div>{project.description && <p>{project.description}</p>}{(project.language || project.commits !== undefined) && <small>{[project.language, project.commits !== undefined ? `${project.commits} commits` : ""].filter(Boolean).join(" · ")}</small>}{project.url && <small className="project-url">{safeExternalHref(project.url) ? <a href={safeExternalHref(project.url)} target="_blank" rel="noreferrer">{project.url}</a> : project.url}</small>}</div>)}</div>
+          ? <div className="project-preview-grid">{data.projects.map((project) => {
+            const projectHref = project.url ? safeExternalHref(project.url) : undefined;
+            return <div className="resume-project" key={project.id}>
+              <div className="project-title"><strong>{project.name || "Project name"}</strong>{project.stars !== undefined && <span>✳ {project.stars}</span>}</div>
+              {project.description && <p>{project.description}</p>}
+              {(project.language || project.commits !== undefined) && <small>{[project.language, project.commits !== undefined ? `${project.commits} commits` : ""].filter(Boolean).join(" · ")}</small>}
+              {projectHref && <a className="project-link" href={projectHref} target="_blank" rel="noopener noreferrer"><Link2 size={11} /> <span>View project</span></a>}
+            </div>;
+          })}</div>
           : <p className="placeholder-note">Add selected projects in the Content tab.</p>)}
         {section.kind === "education" && (data.education.length > 0
           ? data.education.map((entry) => <div className="resume-entry" key={entry.id}><div className="entry-heading"><strong>{entry.degree || "Qualification"}</strong><span>{[entry.startDate, entry.endDate].filter(Boolean).join(" — ")}</span></div><div className="entry-subheading">{entry.school}{entry.location && <> <span>·</span> {entry.location}</>}</div>{entry.details && <p>{entry.details}</p>}</div>)
           : <p className="placeholder-note">Add your education in the Content tab.</p>)}
-        {section.kind === "skills" && (data.skills.length > 0 ? <div className="skill-list">{data.skills.map((skill, index) => <span key={`${skill}-${index}`}>{skill}</span>)}</div> : <p className="placeholder-note">Add skills in the Content tab.</p>)}
+        {section.kind === "skills" && (data.skills.length > 0 ? <div className="skill-list">{data.skills.map((skill, index) => <span className="skill-tag" key={`${skill}-${index}`}><SkillMark skill={skill} /><span className="skill-tag-label">{skill}</span></span>)}</div> : <p className="placeholder-note">Add skills in the Content tab.</p>)}
         {section.kind === "certifications" && (data.certifications.length > 0 ? data.certifications.map((entry) => <div className="resume-entry" key={entry.id}><div className="entry-heading"><strong>{entry.name || "Certification"}</strong><span>{entry.date}</span></div><div className="entry-subheading">{entry.organization}</div></div>) : <p className="placeholder-note">Add certifications in the Content tab.</p>)}
         {section.kind === "awards" && (data.awards.length > 0 ? data.awards.map((entry) => <div className="resume-entry" key={entry.id}><div className="entry-heading"><strong>{entry.name || "Award"}</strong><span>{entry.date}</span></div><div className="entry-subheading">{entry.organization}</div></div>) : <p className="placeholder-note">Add awards in the Content tab.</p>)}
         {section.kind === "custom" && (section.content ? <p className="custom-resume-content">{section.content}</p> : <p className="placeholder-note">Add your {section.title.toLowerCase()} details in the Content tab.</p>)}
@@ -1533,7 +1650,7 @@ function LiveCanvas({
         <div className="sidebar-rule" />
         <div className="sidebar-contact">{contacts.map((contact, index) => renderContact(contact.value, contact.href, index))}</div>
         {data.summary && <p className="sidebar-summary">{data.summary}</p>}
-        {data.skills.length > 0 && <div className="sidebar-skills"><h3>TOOLKIT</h3>{data.skills.map((skill, index) => <span key={`${skill}-${index}`}>{skill}</span>)}</div>}
+        {data.skills.length > 0 && <div className="sidebar-skills"><h3>TOOLKIT</h3>{data.skills.map((skill, index) => <span className="toolkit-chip" key={`${skill}-${index}`}><SkillMark skill={skill} />{skill}</span>)}</div>}
         {data.projects.some((project) => project.stars !== undefined) ? <div className="sidebar-skills"><h3>GITHUB</h3>{data.projects.filter((project) => project.stars !== undefined).slice(0, 3).map((project) => <span key={project.id}>{project.name} · ★ {project.stars}</span>)}</div> : null}
       </div>}
       <div className="resume-main">
@@ -1559,14 +1676,18 @@ function Avatar({ data, photoShape }: { data: ResumeData; photoShape: "circle" |
 function EnrichmentModal({
   linkedinInput,
   setLinkedinInput,
+  githubInput,
+  setGithubInput,
   loading,
   error,
   profile,
+  profileApiAvailable,
   githubConnected,
   linkedinConnected,
   onConnectGitHub,
   onConnectLinkedIn,
   onGithub,
+  onPublicGitHub,
   onLinkedin,
   onFetchLinkedIn,
   onImportFile,
@@ -1576,14 +1697,18 @@ function EnrichmentModal({
 }: {
   linkedinInput: string;
   setLinkedinInput: (value: string) => void;
+  githubInput: string;
+  setGithubInput: (value: string) => void;
   loading: boolean;
   error: string | null;
   profile: EnrichedProfile | null;
+  profileApiAvailable: boolean;
   githubConnected: boolean;
   linkedinConnected: boolean;
   onConnectGitHub: () => void;
   onConnectLinkedIn: () => void;
   onGithub: (includeForks: boolean) => Promise<EnrichedProfile | null>;
+  onPublicGitHub: (value: string) => Promise<EnrichedProfile | null>;
   onLinkedin: () => void;
   onFetchLinkedIn: () => Promise<EnrichedProfile | null>;
   onImportFile: () => void;
@@ -1595,6 +1720,10 @@ function EnrichmentModal({
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedExperience, setSelectedExperience] = useState<number[]>([]);
   const [includeForks, setIncludeForks] = useState(false);
+
+  function importPublicProfile() {
+    void onPublicGitHub(githubInput);
+  }
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -1648,24 +1777,31 @@ function EnrichmentModal({
         <p className="modal-description">Connect official accounts or import a LinkedIn profile PDF. Review every field before adding it to your resume.</p>
         <div className="modal-provider"><span className="provider-icon github-provider"><Github size={16} /></span><div className="provider-copy"><strong>GitHub</strong><small>Public profile & top repositories</small></div><span className="provider-status">LIVE IMPORT</span></div>
         <div className="provider-action-row">
-          <button className="button button-primary" disabled={loading} onClick={githubConnected ? () => void onGithub(includeForks) : onConnectGitHub}>
-            {loading ? <span className="spinner" /> : <Github size={15} />}{githubConnected ? " Fetch top projects" : " Connect GitHub"}
+          <button className="button button-primary" disabled={loading || !profileApiAvailable} onClick={githubConnected ? () => void onGithub(includeForks) : onConnectGitHub}>
+            {loading ? <span className="spinner" /> : <Github size={15} />}{githubConnected ? " Fetch top projects" : " Connect GitHub with OAuth"}
           </button>
           {githubConnected && <span className="provider-connected"><Check size={12} /> Connected</span>}
         </div>
+        {!profileApiAvailable && <p className="profile-source-note">OAuth sign-in is unavailable on this static deployment. Public GitHub import and local profile files still work.</p>}
+        <div className="linkedin-row github-profile-row">
+          <div className="input-wrap has-prefix"><i><Github size={14} /></i><input aria-label="GitHub username or profile URL" value={githubInput} onChange={(event) => setGithubInput(event.target.value)} onKeyDown={(event) => event.key === "Enter" && importPublicProfile()} placeholder="github.com/username" /></div>
+          <button className="button button-outline" disabled={loading || !githubInput.trim()} onClick={importPublicProfile}>{loading ? "Fetching…" : "Import public profile"}</button>
+        </div>
+        <p className="profile-source-note">Public GitHub profiles work without sign-in. OAuth adds pinned projects and higher API limits.</p>
         <label className="fork-option"><input type="checkbox" checked={includeForks} onChange={(event) => setIncludeForks(event.target.checked)} /> Include forked repositories</label>
         {profile?.projects.length ? <div className="repo-import-preview"><strong>Review top GitHub projects</strong>{profile.projects.map((project) => {
           const key = project.githubUrl || project.title;
           return <label className="import-choice" key={key}><input type="checkbox" checked={selectedProjects.includes(key)} onChange={() => setSelectedProjects((current) => current.includes(key) ? current.filter((value) => value !== key) : [...current, key])} /><span><Code2 size={12} /> {project.title}{project.pinned && <small className="pinned-label">Pinned repository</small>}<small>{project.stars} stars · {project.techStack.join(", ")}</small></span></label>;
         })}</div> : null}
-        <div className="modal-divider"><span>OR ADD A PROFILE LINK</span></div>
+        <div className="modal-divider"><span>LINKEDIN PROFILE</span></div>
         <div className="provider-action-row">
-          <button className="button button-outline" disabled={loading} onClick={linkedinConnected ? () => void onFetchLinkedIn() : onConnectLinkedIn}>
+          <button className="button button-outline" disabled={loading || !profileApiAvailable} onClick={linkedinConnected ? () => void onFetchLinkedIn() : onConnectLinkedIn}>
             <Linkedin size={15} />{linkedinConnected ? " Fetch LinkedIn identity" : " Connect LinkedIn"}
           </button>
           {linkedinConnected && <span className="provider-connected"><Check size={12} /> Connected</span>}
         </div>
-        <div className="linkedin-row"><div className="input-wrap has-prefix"><i><Linkedin size={14} /></i><input value={linkedinInput} onChange={(event) => setLinkedinInput(event.target.value)} onKeyDown={(event) => event.key === "Enter" && onLinkedin()} placeholder="linkedin.com/in/yourname" /></div><button className="button button-outline" disabled={!linkedinInput.trim()} onClick={onLinkedin}>Add link</button></div>
+        <div className="linkedin-row"><div className="input-wrap has-prefix"><i><Linkedin size={14} /></i><input aria-label="LinkedIn profile link" value={linkedinInput} onChange={(event) => setLinkedinInput(event.target.value)} onKeyDown={(event) => event.key === "Enter" && onLinkedin()} placeholder="linkedin.com/in/yourname" /></div><button className="button button-outline" disabled={!linkedinInput.trim()} onClick={onLinkedin}>Save profile link</button></div>
+        <p className="profile-source-note">LinkedIn does not allow profile details to be imported from a public URL. Use the profile PDF below to import work history.</p>
         <button className="linkedin-pdf-button" onClick={onImportFile}><Upload size={14} /> Import LinkedIn profile PDF or folio JSON</button>
         {profile?.experience.length ? <div className="repo-import-preview"><strong>Review LinkedIn roles</strong>{profile.experience.slice(0, 3).map((role, index) => <label className="import-choice" key={`${role.company}-${role.role}-${index}`}><input type="checkbox" checked={selectedExperience.includes(index)} onChange={() => setSelectedExperience((current) => current.includes(index) ? current.filter((value) => value !== index) : [...current, index])} /><span><BriefcaseBusiness size={12} /> {role.role}<small>{role.company} · {[role.startDate, role.endDate].filter(Boolean).join(" — ")}</small></span></label>)}</div> : null}
         {profile && <div className="profile-review"><strong>{profile.personal.name || "Imported profile"}</strong>{profile.personal.title && <span>{profile.personal.title}</span>}{profile.personal.email && <span>{profile.personal.email}</span>}{profile.personal.bio && <p>{profile.personal.bio}</p>}{profile.notice && <small>{profile.notice}</small>}</div>}

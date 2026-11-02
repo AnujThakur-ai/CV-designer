@@ -11,7 +11,7 @@ folio is a responsive resume editor for creating, styling, and exporting a CV. E
 - **Live resume editor:** Update your profile, experience, projects, education, skills, certifications, awards, and custom sections.
 - **50 field-aware templates:** Explore layouts for technology, creative work, academia, leadership, legal and policy, marketing, healthcare, education, public service, and operations.
 - **Profile photo and styling:** Add a local photo, choose typography and spacing, and personalize the accent color.
-- **Profile import:** Connect GitHub to review public repositories. Import a LinkedIn profile PDF or folio JSON file and review parsed information before applying it.
+- **Profile import:** Fetch public GitHub profile details and projects by username or profile URL without signing in; optionally connect GitHub for pinned repositories and higher API limits. Import a LinkedIn profile PDF or a folio JSON export and review parsed information before applying it.
 - **AI-assisted summaries:** Optionally draft an experience summary when the server-side OpenAI integration is configured.
 - **Export and local privacy:** Download a PDF through the browser print dialog or export/import a JSON backup. Resume content is autosaved in this browser; it is not uploaded as part of normal editing.
 - **Accessible and responsive controls:** Keyboard-operable section ordering, reduced-motion support, and layouts for narrower screens.
@@ -20,7 +20,7 @@ folio is a responsive resume editor for creating, styling, and exporting a CV. E
 
 [https://folio-resume-studio.netlify.app/](https://folio-resume-studio.netlify.app/)
 
-The public demo may not have profile integrations enabled. OAuth and AI features require server-side deployment configuration; see [Deployment](#deployment).
+The public demo supports public GitHub imports and local profile-file imports. OAuth and AI features require server-side deployment configuration; see [Deployment](#deployment).
 
 ## Run locally
 
@@ -48,7 +48,7 @@ npm run dev:vercel
 
 ### GitHub
 
-GitHub OAuth connects through server-side Vercel functions. The app reviews public repositories and filters forks by default. It does not import private repositories.
+Public GitHub profiles can be imported without signing in; the anonymous GitHub API limit applies. Optional GitHub OAuth connects through server-side Vercel functions to review pinned repositories and increase API limits. Forks are filtered by default, and private repositories are not imported.
 
 ### LinkedIn
 

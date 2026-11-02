@@ -2,6 +2,7 @@ import { useState } from "react";
 import { UnifiedCVSchema } from "../lib/normalizer";
 import type { UnifiedCVData } from "../lib/normalizer";
 import { parseLinkedInFile } from "./normalizer";
+import { normalizePublicGitHubProfile, parseGitHubUsername } from "./profile-import";
 
 export type EnrichedProfile = UnifiedCVData & {
   notice?: string;
@@ -52,6 +53,57 @@ export function useProfileEnrichment() {
       return result;
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Could not fetch the GitHub profile.";
+      setError(message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function fetchPublicGitHub(value: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const username = parseGitHubUsername(value);
+      const signal = AbortSignal.timeout(12_000);
+      const [userResponse, repositoriesResponse] = await Promise.all([
+        fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
+          headers: { Accept: "application/vnd.github+json" },
+          signal,
+        }),
+        fetch(`https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=pushed&per_page=100`, {
+          headers: { Accept: "application/vnd.github+json" },
+          signal,
+        }),
+      ]);
+      if (userResponse.status === 404 || repositoriesResponse.status === 404) {
+        throw new Error("That GitHub profile could not be found.");
+      }
+      if (userResponse.status === 403 || userResponse.status === 429 ||
+        repositoriesResponse.status === 403 || repositoriesResponse.status === 429) {
+        throw new Error("GitHub's public API rate limit was reached. Try again later or connect with OAuth.");
+      }
+      if (!userResponse.ok || !repositoriesResponse.ok) {
+        throw new Error("GitHub could not return this public profile. Try again.");
+      }
+      const [user, repositories]: [unknown, unknown] = await Promise.all([
+        userResponse.json(),
+        repositoriesResponse.json(),
+      ]);
+      const result = normalizePublicGitHubProfile(user, repositories);
+      setProfile((current) => current ? {
+        ...current,
+        ...result,
+        personal: { ...current.personal, ...result.personal },
+        projects: result.projects,
+        experience: current.experience,
+        skills: [...new Set([...current.skills, ...result.skills])],
+      } : result);
+      return result;
+    } catch (reason) {
+      const message = reason instanceof Error && (reason.name === "TimeoutError" || reason.name === "AbortError")
+        ? "GitHub took too long to respond. Try again."
+        : reason instanceof Error ? reason.message : "Could not import that GitHub profile.";
       setError(message);
       return null;
     } finally {
@@ -173,6 +225,7 @@ export function useProfileEnrichment() {
     generatingSummary,
     error,
     fetchGitHub,
+    fetchPublicGitHub,
     fetchLinkedIn,
     importLinkedInFile,
     generateSummary,
