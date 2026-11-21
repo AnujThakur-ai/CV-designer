@@ -919,10 +919,11 @@ kbd { border: 1px solid #dfe1dd; border-radius: 3px; font: inherit; padding: 1px
     box-sizing: border-box !important;
     box-shadow: none !important;
     border-radius: 0 !important;
+    border: none !important;
     overflow: visible !important;
     margin: 0 !important;
     padding: 18mm 19mm 14mm !important;
-    background: var(--template-bg, #ffffff) !important;
+    background-color: var(--template-bg, #ffffff) !important;
     print-color-adjust: exact !important;
     -webkit-print-color-adjust: exact !important;
     color-adjust: exact !important;
@@ -932,6 +933,14 @@ kbd { border: 1px solid #dfe1dd; border-radius: 3px; font: inherit; padding: 1px
     transform: none !important;
     animation: none !important;
     transition: none !important;
+  }
+
+  .layout-bento,
+  .resume-paper.layout-bento {
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: #0d1117 !important;
   }
 
   /* Continuous sidebar column running seamlessly down ALL printed pages */

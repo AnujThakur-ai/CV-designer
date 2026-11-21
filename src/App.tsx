@@ -500,11 +500,11 @@ function App() {
   function prepareForPrint() {
     const paper = document.getElementById("resume-paper");
     if (!paper) return;
-    const mmInPx = 96 / 25.4;
-    const a4HeightPx = 297 * mmInPx;
+    const width = paper.offsetWidth || 642;
+    const a4Height = width * (297 / 210);
     paper.style.minHeight = "auto";
     const scrollHeight = paper.scrollHeight;
-    const count = Math.max(1, Math.ceil((scrollHeight - 14) / a4HeightPx));
+    const count = Math.max(1, Math.ceil((scrollHeight - 16) / a4Height));
     paper.style.setProperty("--print-pages", String(count));
     paper.style.minHeight = `${count * 297}mm`;
     paper.setAttribute("data-print-pages", String(count));
@@ -514,6 +514,7 @@ function App() {
     const bg = computed.backgroundColor;
     if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
       document.documentElement.style.setProperty("--template-bg", bg);
+      document.body.style.setProperty("--template-bg", bg);
     }
   }
 
@@ -523,6 +524,7 @@ function App() {
     paper.style.removeProperty("min-height");
     paper.style.removeProperty("--print-pages");
     document.documentElement.style.removeProperty("--template-bg");
+    document.body.style.removeProperty("--template-bg");
   }
 
   useEffect(() => {
