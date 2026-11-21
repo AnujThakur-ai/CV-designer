@@ -238,6 +238,8 @@ function readStringEntries<T>(
 
 function parseWorkspace(value: unknown): WorkspaceSnapshot | null {
   if (!isRecord(value) || !isRecord(value.data) || !Array.isArray(value.sections)) return null;
+  if (Object.keys(value).some((key) => key === "__proto__" || key === "constructor")) return null;
+  if (Object.keys(value.data).some((key) => key === "__proto__" || key === "constructor")) return null;
   const source = value.data;
   const stringFields: Array<keyof ResumeData> = [
     "name", "title", "email", "phone", "city", "permanentAddress", "github", "linkedin", "portfolio", "twitter", "summary",
@@ -387,6 +389,7 @@ function App() {
   const [githubInput, setGithubInput] = useState("");
   const [customName, setCustomName] = useState("");
   const [toast, setToast] = useState("");
+  const [pageCount, setPageCount] = useState(1);
   const importRef = useRef<HTMLInputElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const linkedInImportRef = useRef<HTMLInputElement>(null);
@@ -474,6 +477,69 @@ function App() {
     }, 350);
     return () => window.clearTimeout(timeout);
   }, [data, sections, template, accent, fontStyle, spacing, photoShape, showPhoto]);
+
+  const updatePageCount = () => {
+    const paper = document.getElementById("resume-paper");
+    if (!paper) return;
+    const width = paper.offsetWidth || 642;
+    const a4Height = width * (297 / 210);
+    const scrollHeight = paper.scrollHeight;
+    const count = Math.max(1, Math.ceil((scrollHeight - 14) / a4Height));
+    setPageCount(count);
+  };
+
+  useLayoutEffect(() => {
+    updatePageCount();
+    const paper = document.getElementById("resume-paper");
+    if (!paper) return;
+    const observer = new ResizeObserver(() => updatePageCount());
+    observer.observe(paper);
+    return () => observer.disconnect();
+  }, [data, enabledSections, template, fontStyle, spacing, showPhoto]);
+
+  function prepareForPrint() {
+    const paper = document.getElementById("resume-paper");
+    if (!paper) return;
+    const mmInPx = 96 / 25.4;
+    const a4HeightPx = 297 * mmInPx;
+    paper.style.minHeight = "auto";
+    const scrollHeight = paper.scrollHeight;
+    const count = Math.max(1, Math.ceil((scrollHeight - 14) / a4HeightPx));
+    paper.style.setProperty("--print-pages", String(count));
+    paper.style.minHeight = `${count * 297}mm`;
+    paper.setAttribute("data-print-pages", String(count));
+    setPageCount(count);
+
+    const computed = window.getComputedStyle(paper);
+    const bg = computed.backgroundColor;
+    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+      document.documentElement.style.setProperty("--template-bg", bg);
+    }
+  }
+
+  function cleanupAfterPrint() {
+    const paper = document.getElementById("resume-paper");
+    if (!paper) return;
+    paper.style.removeProperty("min-height");
+    paper.style.removeProperty("--print-pages");
+    document.documentElement.style.removeProperty("--template-bg");
+  }
+
+  useEffect(() => {
+    window.addEventListener("beforeprint", prepareForPrint);
+    window.addEventListener("afterprint", cleanupAfterPrint);
+    return () => {
+      window.removeEventListener("beforeprint", prepareForPrint);
+      window.removeEventListener("afterprint", cleanupAfterPrint);
+    };
+  }, []);
+
+  function handleDownloadPdf() {
+    prepareForPrint();
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  }
 
   function updateField<K extends keyof ResumeData>(key: K, value: ResumeData[K]) {
     setData((current) => ({ ...current, [key]: value }));
@@ -781,9 +847,16 @@ function App() {
     if (!element) return;
     try {
       const css = Array.from(document.styleSheets)
-        .flatMap((sheet) => Array.from(sheet.cssRules, (rule) => rule.cssText))
+        .flatMap((sheet) => {
+          try {
+            return Array.from(sheet.cssRules, (rule) => rule.cssText);
+          } catch {
+            return [];
+          }
+        })
         .join("\n");
-      const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(data.name || "Resume")}</title><style>${css}\nbody{margin:0;background:#fff}.resume-paper{box-shadow:none!important;margin:0 auto}</style></head><body>${element.outerHTML}</body></html>`;
+      const paperBg = window.getComputedStyle(element).backgroundColor || "#ffffff";
+      const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(data.name || "Resume")}</title><style>${css}\nbody{margin:0;background:${paperBg}}.resume-paper{box-shadow:none!important;margin:0 auto}</style></head><body>${element.outerHTML}</body></html>`;
       await navigator.clipboard.writeText(html);
       notify("Resume HTML copied");
     } catch {
@@ -855,7 +928,7 @@ function App() {
             {dark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <button className="button button-outline top-export" onClick={saveJson}><Download size={15} /> Export JSON</button>
-          <button className="button button-primary top-pdf" onClick={() => window.print()}><Printer size={15} /> Download PDF</button>
+          <button className="button button-primary top-pdf" onClick={handleDownloadPdf}><Printer size={15} /> Download PDF</button>
         </div>
       </header>
 
@@ -973,7 +1046,7 @@ function App() {
               <span className="toolbar-divider" />
               <button className="icon-button canvas-icon" title="Import JSON" onClick={() => importRef.current?.click()}><Upload size={15} /></button>
               <button className="icon-button canvas-icon" title="Copy resume HTML" onClick={() => void copyHtml()}><Code2 size={16} /></button>
-              <button className="icon-button canvas-icon" title="Print or save as PDF" onClick={() => window.print()}><Printer size={15} /></button>
+              <button className="icon-button canvas-icon" title="Print or save as PDF" onClick={handleDownloadPdf}><Printer size={15} /></button>
             </div>
           </div>
           <div className="canvas-scroll">
@@ -989,12 +1062,13 @@ function App() {
                   spacing={spacing}
                   showPhoto={showPhoto}
                   photoShape={photoShape}
+                  pageCount={pageCount}
                 />
               </div>
               <div className="canvas-hint"><Sparkles size={13} /> Edits update your resume instantly</div>
             </div>
           </div>
-          <div className="canvas-footer"><span><kbd>⌘</kbd> <kbd>P</kbd> to export</span><span>A4 · 210 × 297 mm</span><span className="zoom-control"><button aria-label="Zoom out" disabled={zoom <= 70} onClick={() => setZoom((value) => Math.max(70, value - 10))}>−</button><span>{zoom}%</span><button aria-label="Zoom in" disabled={zoom >= 120} onClick={() => setZoom((value) => Math.min(120, value + 10))}>+</button></span></div>
+          <div className="canvas-footer"><span><kbd>⌘</kbd> <kbd>P</kbd> to export</span><span>A4 · 210 × 297 mm</span><span className={`page-count-badge ${pageCount > 1 ? "multipage" : ""}`}>{pageCount} {pageCount === 1 ? "page" : "pages"}</span><span className="zoom-control"><button aria-label="Zoom out" disabled={zoom <= 70} onClick={() => setZoom((value) => Math.max(70, value - 10))}>−</button><span>{zoom}%</span><button aria-label="Zoom in" disabled={zoom >= 120} onClick={() => setZoom((value) => Math.min(120, value + 10))}>+</button></span></div>
         </section>
 
         <aside className="right-panel">
@@ -1559,6 +1633,7 @@ function LiveCanvas({
   spacing,
   showPhoto,
   photoShape,
+  pageCount,
 }: {
   data: ResumeData;
   sections: ResumeSection[];
@@ -1568,6 +1643,7 @@ function LiveCanvas({
   spacing: "compact" | "normal" | "relaxed";
   showPhoto: boolean;
   photoShape: "circle" | "rounded" | "hexagon";
+  pageCount: number;
 }) {
   const split = ["sidebar", "split", "clinical", "boardroom", "policy", "hr", "nonprofit", "nursing", "health-admin", "biotech", "faculty", "teacher", "instructional", "university", "civic", "diplomacy", "community", "success", "public-health"].includes(template.layout);
   const bento = ["bento", "dashboard", "founder", "revenue"].includes(template.layout);
@@ -1627,6 +1703,16 @@ function LiveCanvas({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.27, ease: "easeOut" }}
     >
+      {pageCount > 1 && Array.from({ length: pageCount - 1 }, (_, index) => (
+        <div
+          key={`page-break-${index + 1}`}
+          className="page-break-marker"
+          style={{ top: `${((index + 1) / pageCount) * 100}%` }}
+          aria-hidden="true"
+        >
+          <span>Page {index + 2}</span>
+        </div>
+      ))}
       {bento && <header className="bento-hero bento-card">
         {showPhoto && <Avatar data={data} photoShape={photoShape} />}
         <div className="bento-hero-copy">
@@ -1663,7 +1749,12 @@ function LiveCanvas({
         <div className="resume-body">
           {sections.map(renderSection)}
         </div>
-        {(data.permanentAddress || data.city || data.name) && <footer className="resume-footer"><span>{data.permanentAddress || data.city}</span><span>{data.name} <span className="footer-dot">·</span> 01</span></footer>}
+        {(data.permanentAddress || data.city || data.name) && (
+          <footer className="resume-footer">
+            <span>{data.permanentAddress || data.city}</span>
+            <span>{data.name} <span className="footer-dot">·</span> {pageCount > 1 ? `Page 1 of ${pageCount}` : "01"}</span>
+          </footer>
+        )}
       </div>
     </motion.article>
   );

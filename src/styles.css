@@ -16,6 +16,9 @@
   --green: #557d68;
   --purple: #6b72d6;
   --panel: #fff;
+  --template-bg: #ffffff;
+  --sidebar-bg: #f5f6f8;
+  --sidebar-width: 34%;
 }
 
 * { box-sizing: border-box; }
@@ -187,7 +190,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .paper-meta { display: flex; justify-content: space-between; margin: 0 1px 9px; font: 9px "DM Mono", monospace; color: #969992; letter-spacing: .045em; }
 .paper-meta > span:first-child { display: flex; gap: 6px; align-items: center; color: #7c827a; }
 .meta-live-dot { width: 5px; height: 5px; }
-.resume-paper { --resume-accent: #6b72d6; min-height: 812px; padding: 47px 52px 25px; background: #fff; box-shadow: 0 5px 25px #28312a0d, 0 1px 3px #28312a10; color: #292b29; position: relative; overflow: hidden; display: flex; flex-direction: column; font-size: 11px; }
+.resume-paper { --resume-accent: #6b72d6; min-height: 812px; padding: 47px 52px 25px; background: var(--template-bg, #fff); box-shadow: 0 5px 25px #28312a0d, 0 1px 3px #28312a10; color: #292b29; position: relative; overflow: hidden; display: flex; flex-direction: column; font-size: 11px; }
+.page-break-marker { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: flex-end; border-top: 1px dashed rgba(100, 116, 139, 0.45); height: 0; pointer-events: none; z-index: 20; }
+.page-break-marker span { background: rgba(30, 41, 59, 0.75); color: #f8fafc; font-size: 8px; font-family: "DM Mono", monospace; padding: 2px 7px; border-radius: 4px; transform: translateY(-50%); margin-right: 14px; letter-spacing: 0.04em; }
+.page-count-badge { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px; background: #eef2ed; color: #4b5849; font-size: 10px; font-weight: 600; margin-left: 6px; }
+.page-count-badge.multipage { background: #e0f2fe; color: #0369a1; }
 .resume-paper.font-serif { font-family: "Playfair Display", Georgia, serif; }
 .resume-paper.font-mono { font-family: "DM Mono", monospace; }
 .resume-paper.font-sans { font-family: "DM Sans", sans-serif; }
@@ -239,10 +246,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .placeholder-note { font-size: 10px; color: #72766f; }
 .preview-placeholder { color: #969a92; font-weight: 400; }
 .custom-resume-content { white-space: pre-wrap; overflow-wrap: anywhere; color: #555951; font-size: 10px; line-height: 1.6; }
-.split-layout { display: grid; grid-template-columns: 34% 1fr; min-height: 812px; padding: 0; }
-.layout-split { grid-template-columns: 1fr 1fr; }
-.layout-clinical, .layout-nursing, .layout-policy, .layout-hr, .layout-nonprofit, .layout-health-admin, .layout-biotech, .layout-faculty, .layout-teacher, .layout-instructional, .layout-university, .layout-civic, .layout-diplomacy, .layout-community, .layout-success, .layout-public-health { grid-template-columns: 28% 1fr; }
-.layout-boardroom { grid-template-columns: 32% 1fr; background: #faf8f4; }
+.split-layout { display: grid; grid-template-columns: 34% 1fr; min-height: 812px; padding: 0; --sidebar-width: 34%; --sidebar-bg: color-mix(in srgb, var(--resume-accent, #6b72d6), white 94%); }
+.layout-split { grid-template-columns: 1fr 1fr; --sidebar-width: 50%; --sidebar-bg: color-mix(in srgb, var(--resume-accent, #6b72d6), white 94%); }
+.layout-clinical, .layout-nursing, .layout-policy, .layout-hr, .layout-nonprofit, .layout-health-admin, .layout-biotech, .layout-faculty, .layout-teacher, .layout-instructional, .layout-university, .layout-civic, .layout-diplomacy, .layout-community, .layout-success, .layout-public-health { grid-template-columns: 28% 1fr; --sidebar-width: 28%; --sidebar-bg: color-mix(in srgb, var(--resume-accent, #6b72d6), white 94%); }
+.layout-boardroom { grid-template-columns: 32% 1fr; background: #faf8f4; --template-bg: #faf8f4; --sidebar-bg: #292b2d; --sidebar-width: 32%; }
 .split-layout .resume-sidebar { background: color-mix(in srgb, var(--resume-accent), white 94%); }
 .layout-boardroom .resume-sidebar { background: #292b2d; color: #f5f1e9; }
 .layout-boardroom .resume-sidebar h2, .layout-boardroom .resume-sidebar .resume-title { color: #f5f1e9; }
@@ -252,7 +259,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .split-layout .resume-section { margin-top: 21px; }
 .split-layout .resume-section h3 { font-size: 8px; }
 .split-layout .resume-footer { margin-top: auto; }
-.layout-sidebar { grid-template-columns: 34% 1fr; }
+.layout-sidebar { grid-template-columns: 34% 1fr; --sidebar-bg: #f5f6f8; --sidebar-width: 34%; }
 .layout-sidebar .resume-sidebar { background: #f5f6f8; }
 .layout-sidebar .resume-main { padding: 49px 33px 25px; }
 .resume-sidebar { background: #f5f6f8; padding: 43px 20px 28px; }
@@ -338,7 +345,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .layout-timeline .resume-experience .resume-entry:before { content: ""; position: absolute; left: -19px; top: 3px; width: 7px; height: 7px; border: 2px solid #fff; border-radius: 50%; background: var(--resume-accent); box-shadow: 0 0 0 1px var(--resume-accent); }
 .layout-timeline .resume-project { border: 0; border-top: 1px solid #e7e8e5; border-radius: 0; padding: 8px 0; }
 .layout-timeline .resume-section:not(.resume-experience) h3 { color: #343733; border-bottom: 1px solid #e7e8e5; padding-bottom: 5px; }
-.layout-terminal { padding-top: 55px; border: 1px solid #23362d; color: #d7e4dc; background: #0a0e14; font-family: "DM Mono", monospace; }
+.layout-terminal { padding-top: 55px; border: 1px solid #23362d; color: #d7e4dc; background: #0a0e14; --template-bg: #0a0e14; font-family: "DM Mono", monospace; }
 .layout-terminal:before { content: "folio://profile  ·  session active"; position: absolute; inset: 0 0 auto; padding: 12px 18px; border-bottom: 1px solid #253a30; color: var(--resume-accent); font: 8px "DM Mono", monospace; letter-spacing: .08em; }
 .layout-terminal .resume-header, .layout-ide .resume-header { border-color: #ffffff26; }
 .layout-terminal .resume-header h2, .layout-ide .resume-header h2 { color: #f0fff6; }
@@ -350,13 +357,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .layout-terminal .resume-project, .layout-ide .resume-project { border-color: #ffffff20; background: #ffffff08; }
 .layout-terminal .skill-list > .skill-tag { border-color: #315440; color: #b7e9c8; background: #00d97810; }
 .layout-terminal .resume-footer { border-color: #ffffff20; }
-.layout-ide { background: #1b1b2b; color: #e5e5ed; border: 1px solid #343449; }
+.layout-ide { background: #1b1b2b; --template-bg: #1b1b2b; color: #e5e5ed; border: 1px solid #343449; }
 .layout-ide .resume-section { padding: 11px; border: 1px solid #ffffff12; border-radius: 6px; background: #ffffff06; }
 .layout-ide .resume-section h3 { color: var(--resume-accent); }
 .layout-ide .resume-summary, .layout-ide .entry-heading > span, .layout-ide .entry-subheading, .layout-ide .resume-entry p, .layout-ide .resume-entry ul, .layout-ide .resume-project p, .layout-ide .resume-project small, .layout-ide .custom-resume-content, .layout-ide .resume-footer { color: #b7b7c8; }
 .layout-ide .resume-contact a, .layout-ide .resume-contact span { color: #c9c9d7; }
 .layout-ide .skill-list > .skill-tag { border-color: #514d70; color: #ded9ff; background: #6a5ca51a; }
-.layout-notebook { padding-top: 39px; background: #fbfbfd; }
+.layout-notebook { padding-top: 39px; background: #fbfbfd; --template-bg: #fbfbfd; }
 .layout-notebook .resume-header h2 { font-family: "DM Sans", sans-serif; font-size: 30px; }
 .layout-notebook .resume-section { margin: 13px 0 0 10px; padding: 11px 13px; border-left: 3px solid var(--resume-accent); background: #f3f3f7; }
 .layout-notebook .resume-section h3 { color: #35344f; }
@@ -364,7 +371,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .layout-swiss .resume-header { border-bottom: 3px solid #171717; }
 .layout-swiss .resume-header h2 { max-width: 90%; font-size: 42px; letter-spacing: -.075em; }
 .layout-swiss .resume-section h3 { color: #181818; border-bottom: 2px solid #181818; padding-bottom: 6px; }
-.layout-glass { background: radial-gradient(ellipse at 4% 5%, #f5dce9 0, transparent 38%), radial-gradient(ellipse at 95% 95%, #d7eee7 0, transparent 42%), #f8f7fb; }
+.layout-glass { background: radial-gradient(ellipse at 4% 5%, #f5dce9 0, transparent 38%), radial-gradient(ellipse at 95% 95%, #d7eee7 0, transparent 42%), #f8f7fb; --template-bg: #f8f7fb; }
 .layout-glass .resume-header, .layout-glass .resume-section { padding: 13px; border: 1px solid #ffffffc9; border-radius: 12px; background: #ffffff9e; box-shadow: 0 8px 23px #4f526210; }
 .layout-glass .resume-header { padding: 20px; }
 .layout-glass .resume-contact { border: 0; }
@@ -434,10 +441,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .layout-community .sidebar-summary { padding: 8px; border-left: 2px solid var(--resume-accent); background: #ffffff9c; }
 .layout-success .resume-sidebar { background: #edf4f1; }
 .layout-supply-chain .resume-section { border-top: 2px solid var(--resume-accent); }
-.layout-founder { background: linear-gradient(150deg, #fffdfa, #f8f1eb); }
+.layout-founder { background: linear-gradient(150deg, #fffdfa, #f8f1eb); --template-bg: #fffdfa; }
 .layout-founder .bento-card { border-radius: 3px; border-color: #e6d9cd; background: #ffffffc9; box-shadow: none; }
 .layout-public-health .resume-sidebar { background: #edf5f2; }
 .layout-public-health .sidebar-rule { background: #c9ded8; }
+.layout-finance { --template-bg: #faf9f6; }
 .layout-finance .resume-header { border-top: 4px double var(--resume-accent); padding-top: 15px; }
 .layout-finance .resume-section h3 { color: #344b61; border-bottom: 1px solid #d6dfe6; padding-bottom: 5px; }
 .layout-finance .resume-summary { padding: 10px 12px; border-left: 3px solid var(--resume-accent); background: #f3f6f8; }
@@ -770,7 +778,7 @@ kbd { border: 1px solid #dfe1dd; border-radius: 3px; font: inherit; padding: 1px
 .photo-import-copy small { color: #92958f; font-size: 8px; }
 .photo-import-card .button { height: 28px; padding: 0 9px; font-size: 9px; }
 .photo-remove { width: 25px; height: 25px; }
-.layout-bento { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; gap: 12px; min-height: 812px; padding: 22px; overflow: visible; border: 1px solid #ffffff17; border-radius: 20px; color: #e8f1f5; background: radial-gradient(ellipse at 12% 0%, #142e42 0, transparent 44%), radial-gradient(ellipse at 88% 100%, #172443 0, transparent 48%), #0d1117; }
+.layout-bento { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; gap: 12px; min-height: 812px; padding: 22px; overflow: visible; border: 1px solid #ffffff17; border-radius: 20px; color: #e8f1f5; background: radial-gradient(ellipse at 12% 0%, #142e42 0, transparent 44%), radial-gradient(ellipse at 88% 100%, #172443 0, transparent 48%), #0d1117; --template-bg: #0d1117; }
 .bento-card { border: 1px solid #ffffff16; border-radius: 16px; padding: 17px; background: #ffffff08; box-shadow: inset 0 1px #ffffff08, 0 14px 35px #0002; backdrop-filter: blur(12px); animation: fadeInUp .55s both; transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
 .bento-card:hover { transform: translateY(-4px); border-color: #00d9f577; box-shadow: 0 18px 42px #0005, 0 0 24px #00d9f512; }
 .bento-hero { grid-column: span 2; display: flex; align-items: flex-start; gap: 16px; animation-delay: .1s; }
@@ -842,22 +850,190 @@ kbd { border: 1px solid #dfe1dd; border-radius: 3px; font: inherit; padding: 1px
   .layout-swiss, .layout-fashion, .layout-monograph, .layout-legal, .layout-diplomacy { padding: 31px 25px 22px; }
   .layout-banner .resume-header, .layout-global .resume-header, .layout-university .resume-header { margin: -31px -25px 15px; padding: 30px 25px 16px; }
 }
-.dark .layout-bento { color: #e8f1f5; background: radial-gradient(ellipse at 12% 0%, #142e42 0, transparent 44%), radial-gradient(ellipse at 88% 100%, #172443 0, transparent 48%), #0d1117; }
+.dark .layout-bento { color: #e8f1f5; background: radial-gradient(ellipse at 12% 0%, #142e42 0, transparent 44%), radial-gradient(ellipse at 88% 100%, #172443 0, transparent 48%), #0d1117; --template-bg: #0d1117; }
 @media print {
-  @page { size: A4; margin: 0; }
-  .intro-splash { display: none !important; }
-  html, body, #root, .app, .workspace, .canvas-area, .canvas-scroll { width: 210mm; height: auto; min-height: 0; overflow: visible; margin: 0; padding: 0; background: white; }
-  .topbar, .left-panel, .right-panel, .canvas-toolbar, .canvas-footer, .paper-meta, .canvas-hint, .modal-backdrop, .toast { display: none !important; }
-  .workspace { display: block; }
-  .canvas-area { display: block; }
-  .canvas-scroll { display: block; }
-  .paper-stage { width: 210mm; margin: 0; }
-  .paper-zoom { zoom: 1 !important; }
-  .resume-paper { width: 210mm; min-height: 297mm; height: auto; box-shadow: none; margin: 0; padding: 18mm 19mm 13mm; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .split-layout { padding: 0; }
-  .split-layout .resume-sidebar { padding: 18mm 8mm 12mm; }
-  .split-layout .resume-main { padding: 19mm 12mm 12mm; }
-  .layout-terminal, .layout-ide { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .resume-section, .resume-entry, .resume-project { break-inside: avoid; }
-  .placeholder-note, .preview-placeholder { display: none !important; }
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  .intro-splash,
+  .topbar,
+  .left-panel,
+  .right-panel,
+  .canvas-toolbar,
+  .canvas-footer,
+  .paper-meta,
+  .canvas-hint,
+  .modal-backdrop,
+  .toast,
+  .placeholder-note,
+  .preview-placeholder,
+  .page-break-marker {
+    display: none !important;
+  }
+
+  html,
+  body {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: var(--template-bg, #ffffff) !important;
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #root,
+  .app,
+  .workspace,
+  .canvas-area,
+  .canvas-scroll {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    display: block !important;
+  }
+
+  .paper-stage {
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .paper-zoom {
+    zoom: 1 !important;
+    transform: none !important;
+  }
+
+  /* Force template to cover all pages completely from top to bottom */
+  .resume-paper {
+    width: 210mm !important;
+    min-height: calc(var(--print-pages, 1) * 297mm) !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 18mm 19mm 14mm !important;
+    background: var(--template-bg, #ffffff) !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    display: flex !important;
+    flex-direction: column !important;
+    position: relative !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Continuous sidebar column running seamlessly down ALL printed pages */
+  .split-layout {
+    display: grid !important;
+    padding: 0 !important;
+    min-height: calc(var(--print-pages, 1) * 297mm) !important;
+    background-image: linear-gradient(
+      to right,
+      var(--sidebar-bg, color-mix(in srgb, var(--resume-accent, #6b72d6), white 94%)) 0,
+      var(--sidebar-bg, color-mix(in srgb, var(--resume-accent, #6b72d6), white 94%)) var(--sidebar-width, 34%),
+      var(--template-bg, #ffffff) var(--sidebar-width, 34%),
+      var(--template-bg, #ffffff) 100%
+    ) !important;
+    background-repeat: repeat-y !important;
+  }
+
+  .layout-boardroom.split-layout {
+    background-image: linear-gradient(
+      to right,
+      #292b2d 0,
+      #292b2d 32%,
+      #faf8f4 32%,
+      #faf8f4 100%
+    ) !important;
+  }
+
+  .layout-sidebar.split-layout {
+    background-image: linear-gradient(
+      to right,
+      #f5f6f8 0,
+      #f5f6f8 34%,
+      #ffffff 34%,
+      #ffffff 100%
+    ) !important;
+  }
+
+  .split-layout .resume-sidebar {
+    background: transparent !important;
+    padding: 18mm 10mm 14mm !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .split-layout .resume-main {
+    padding: 18mm 14mm 14mm !important;
+    min-width: 0 !important;
+  }
+
+  .resume-footer {
+    margin-top: auto !important;
+    padding-top: 10px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .resume-section {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .resume-section h3,
+  .resume-header,
+  .entry-heading,
+  .project-title,
+  .sidebar-skills h3 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .resume-entry,
+  .resume-project,
+  .bento-hero,
+  .bento-card,
+  .bento-metrics,
+  .bento-metric,
+  .skill-list,
+  .sidebar-skills,
+  .resume-contact,
+  .bento-contact,
+  .resume-summary,
+  .bento-summary {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .resume-entry li {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  p, li {
+    orphans: 3;
+    widows: 3;
+  }
+
+  .layout-terminal,
+  .layout-ide,
+  .layout-bento {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
 }

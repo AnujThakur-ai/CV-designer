@@ -173,4 +173,5 @@ export function setSecurityHeaders(res: ApiResponse) {
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'");
 }
